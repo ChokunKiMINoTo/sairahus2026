@@ -117,13 +117,13 @@ function screenRegister() {
     '<form id="f" class="card">' +
       '<label>I am a<select name="role" id="role" required>' +
         '<option value="">— select —</option>' +
-        '<option value="junior">Junior (Nong)</option><option value="senior">Senior (Phi)</option>' +
+        '<option value="junior">Junior (น้อง)</option><option value="senior">Senior (พี่)</option>' +
       '</select></label>' +
       '<label>Nickname<input name="nickname" required maxlength="30"></label>' +
       '<label>Full name<input name="realName" required maxlength="80"></label>' +
       '<label>Student ID<input name="studentId" required inputmode="numeric" pattern="\\d{7,12}"></label>' +
-      '<label>University email' +
-        '<span class="hintof">Backup contact for this event only. Visible to staff.</span>' +
+      '<label>University email (@student.mahidol)' +
+        '<span class="hintof">Backup contact for this event only.</span>' +
         '<input type="email" name="email" required></label>' +
       '<label>Year<select name="year" required>' + opts(YEARS, 1) + '</select></label>' +
       '<label>Baan<select name="house" required>' + opts(BAANS, 1) + '</select></label>' +
