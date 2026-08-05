@@ -68,8 +68,7 @@ const API = 'https://script.google.com/macros/s/AKfycbyUbWfX5heEeSobJV49ENFCEQ28
 const YEARS = 4;    // years 1-4
 const BAANS = 10;   // Baan 1-10
 
-// Gadget names only — hints are free-style, seniors write whatever they like.
-const GADGETS = ['Bamboo Copter', 'Anywhere Door', 'Search Light', 'Out of the Drawer'];
+// Hints are free-style and unlabelled — just Hint 1-4, seniors write anything.
 const HINT_PLACEHOLDER = 'Write anything about yourself…';
 
 const $ = s => document.querySelector(s);
@@ -145,18 +144,16 @@ function screenRegister() {
   $('#f').addEventListener('submit', submitRegister);
 }
 
-/** Four free-style boxes. Only the ordering is guided, never the subject. */
+/** Four free-style boxes, all required. Ordering is guided, never the subject. */
 function hintFields(values) {
-  return '<p class="hintof" style="margin:0 0 4px">Write anything you like. ' +
-      'Order them <b>vague → obvious</b>: hint 1 is cheapest for your junior, ' +
-      'hint 4 gives you away.</p>' +
-    GADGETS.map((g, i) =>
-      '<label>Hint ' + (i + 1) + ' · ' + g +
-        (i === 0 ? '<span class="hintof">Required — the one every junior can afford.</span>'
-                 : '<span class="hintof">Optional</span>') +
-        '<textarea name="hint' + (i + 1) + '" minlength="15" maxlength="200"' +
-          ' placeholder="' + HINT_PLACEHOLDER + '"' +
-          (i === 0 ? ' required' : '') + '>' + esc(values ? values[i] : '') + '</textarea>' +
+  return '<p class="hintof" style="margin:0 0 4px">All four are required. Write ' +
+      'anything you like, ordered <b>vague → obvious</b>: hint 1 is cheapest for ' +
+      'your junior, hint 4 gives you away.</p>' +
+    [1, 2, 3, 4].map(n =>
+      '<label>Hint ' + n +
+        '<textarea name="hint' + n + '" maxlength="200" required' +
+          ' placeholder="' + HINT_PLACEHOLDER + '">' +
+          esc(values ? values[n - 1] : '') + '</textarea>' +
       '</label>').join('');
 }
 
@@ -237,7 +234,7 @@ function screenWallet() {
         (h.cost ? h.cost + (h.cost > 1 ? ' coins' : ' coin') : 'Free') + '</button>';
 
       return '<div class="card">' +
-        '<div class="lv"><div><h3>Hint ' + h.level + ' · ' + GADGETS[h.level - 1] + '</h3>' +
+        '<div class="lv"><div><h3>Hint ' + h.level + '</h3>' +
           '<small>' + (h.cost ? 'Costs ' + h.cost + (h.cost > 1 ? ' coins' : ' coin')
                               : 'Free at the reveal') + '</small></div>' + action + '</div>' +
         (h.unlocked ? '<div class="txt">' + esc(h.text) + '</div>' : '') +
@@ -262,7 +259,7 @@ function screenCheckin() {
   }
   render(
     '<h1>Check in</h1>' +
-    '<p class="sub">Enter the 4-digit Anywhere Door code from the sign at the entrance.</p>' +
+    '<p class="sub">Enter the 4-digit code from the sign at the entrance.</p>' +
     '<form id="f" class="card">' +
       '<input class="code" name="code" inputmode="numeric" pattern="\\d{4}" maxlength="4" required autofocus>' +
       '<button type="submit">Check in</button></form>'

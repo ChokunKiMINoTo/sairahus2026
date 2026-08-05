@@ -8,7 +8,6 @@
 
 const PHASES = ['REGISTER', 'QUEST_R1', 'QUEST_R2', 'QUEST_R3', 'CHECKIN', 'HUNT', 'REVEAL'];
 const HINT_COST = { 1: 1, 2: 1, 3: 2, 4: 0 };
-const HINT_MIN = 15;
 const YEARS = 4;    // years 1-4
 const BAANS = 10;   // Baan 1-10
 
@@ -228,9 +227,8 @@ const ACTIONS = {
   saveHints: function (uid, b) {
     const p = findUser(uid);
     if (!p || p.role !== 'senior') return { error: 'not_senior' };
-    if (!b.hint1 || b.hint1.trim().length < HINT_MIN) {
-      return { error: 'invalid', message: 'Hint 1 must be at least ' + HINT_MIN + ' characters.' };
-    }
+    const blank = missingHint(b);
+    if (blank) return { error: 'invalid', message: 'Hint ' + blank + ' cannot be empty.' };
     updateRow('participants', p._row, {
       hint1: b.hint1.trim(), hint2: (b.hint2 || '').trim(),
       hint3: (b.hint3 || '').trim(), hint4: (b.hint4 || '').trim(),
@@ -336,8 +334,11 @@ const ACTIONS = {
       checkedInSeniors: seniors.filter(x => x.checkedInAt).length,
       unpaired: juniors.filter(x => !x.seniorId).length,
       pendingReviews: rows('submissions').filter(x => !x.status).length,
-      noHints: seniors.filter(x => !String(x.hint1 || '').trim())
-                      .map(x => x.nickname + ' (Baan ' + x.house + ')'),
+      // Anyone missing ANY hint — records created before all four became
+      // required, or a cell a staffer cleared by hand.
+      noHints: seniors.filter(x => missingHint(x))
+                      .map(x => x.nickname + ' (Baan ' + x.house + ', missing hint ' +
+                                missingHint(x) + ')'),
     };
   },
 
@@ -377,6 +378,12 @@ function hintState(uid, junior) {
     written: !!(senior && String(senior['hint' + level] || '').trim()),
     text: unlocked[level] && senior ? String(senior['hint' + level] || '') : '',
   }));
+}
+
+/** First hint level (1-4) that is blank on a record, or 0 if all four are filled. */
+function missingHint(rec) {
+  for (let i = 1; i <= 4; i++) if (!String(rec['hint' + i] || '').trim()) return i;
+  return 0;
 }
 
 function quests(round) { return String(cfg('QUEST_R' + round) || '').split('|').filter(String); }
@@ -494,9 +501,8 @@ function validateRegistration(b) {
   if (b.role === 'senior') {
     const cap = Number(b.capacity);
     if (!(cap >= 1 && cap <= 5)) return 'Capacity must be 1-5 juniors.';
-    if (!b.hint1 || b.hint1.trim().length < HINT_MIN) {
-      return 'Hint 1 must be at least ' + HINT_MIN + ' characters.';
-    }
+    const blank = missingHint(b);
+    if (blank) return 'Hint ' + blank + ' cannot be empty.';
   }
   return null;
 }

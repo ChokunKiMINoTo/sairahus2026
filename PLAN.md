@@ -159,13 +159,15 @@ Three things this costs us, all cheap:
 - **Hints go stale.** A senior who wrote "wearing my blue jacket" in week one
   is wrong on the day. Rich menu tile "My hints" opens `?p=hint` — the same
   form in edit mode, any time. No new code path.
-- **Blank hints.** *Never charge a coin for empty text.* Check the cell
-  before deducting; if blank, reply "your senior hasn't written this yet" and refund
-  nothing because nothing was taken. This is the one guard that turns a
-  lazy feature into an angry junior otherwise.
-- **Lazy hints.** `minlength=15` on every box, hint 1 required at registration
-  so at least one always exists. Staff menu gets a "seniors with no hints"
-  count → nag list.
+- **Blank hints.** *Never charge a coin for empty text.* All four boxes are
+  required at registration, so this should be unreachable — but the guard stays
+  as a backstop for records written before the rule and for cells a staffer
+  clears by hand. Check the cell before deducting; if blank, reply "your senior
+  hasn't written this yet" and take nothing.
+- **Lazy hints.** No minimum length — a senior who wants to write "tall" gets
+  to. All four are required (non-empty), so every junior always has a full
+  ladder to buy. Staff menu lists any senior missing a hint, and which one →
+  nag list.
 
 **6. Staff menu** — Review quests, Change phase, Check-in counts, Cut-off & rematch.
 Phase and cut-off gated to 2–3 hardcoded lead userIds in `config`.
