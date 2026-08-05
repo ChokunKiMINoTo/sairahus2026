@@ -137,6 +137,7 @@ function runCutoff() {
 
   const moved = [];
   const stranded = [];
+  const newJuniors = {};   // seniorId -> how many juniors moved to them
 
   const houses = {};
   all.forEach(p => (houses[p.house] = houses[p.house] || []).push(p));
@@ -155,6 +156,7 @@ function runCutoff() {
       if (moves[j.id]) {
         updateRow('participants', rowOf[j.id], { seniorId: moves[j.id], pairStatus: 'reassigned' });
         moved.push(j.id);
+        newJuniors[moves[j.id]] = (newJuniors[moves[j.id]] || 0) + 1;
       } else if (j.checkedIn && !j.seniorId) {
         stranded.push(j.id);
       }
@@ -162,11 +164,6 @@ function runCutoff() {
   });
 
   // Only the affected seniors get told. Everyone else pulls from their menu.
-  const newJuniors = {};
-  moved.forEach(jid => {
-    const sid = rows('participants').find(p => p.lineUserId === jid).seniorId;
-    newJuniors[sid] = (newJuniors[sid] || 0) + 1;
-  });
   Object.keys(newJuniors).forEach(sid => {
     push(sid, newJuniors[sid] + ' more junior(s) have been assigned to you 🔵\n' +
       'Open the "Magic Pocket" menu to see your list.');

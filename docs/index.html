@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Sairahus 2026</title>
+<!-- Warm up DNS + TLS to the backend while the LIFF SDK is still initialising.
+     Saves a visible chunk of the first request on mobile data. -->
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
   :root{ --blue:#2A7DE1; --deep:#1B5FB0; --red:#E60012; --yellow:#FFCC00;
@@ -64,16 +68,9 @@ const API = 'https://script.google.com/macros/s/AKfycbyUbWfX5heEeSobJV49ENFCEQ28
 const YEARS = 4;    // years 1-4
 const BAANS = 10;   // Baan 1-10
 
-const HINT_LABELS = [
-  { g: 'Bamboo Copter',   q: 'A view from above — a broad trait or hobby',
-    eg: 'e.g. "Loud, always at the back of the room, runs on iced coffee"' },
-  { g: 'Anywhere Door',   q: 'Something people usually get wrong about you',
-    eg: 'e.g. "Looks intimidating, actually too shy to say hi first"' },
-  { g: 'Search Light',    q: 'Event-day marker — what you are wearing, where you will be',
-    eg: 'e.g. "Blue plaid shirt, standing near the registration desk"' },
-  { g: 'Out of the Drawer', q: 'Your initials + the first thing you will say',
-    eg: 'e.g. "K.T. — will say: took you long enough"' },
-];
+// Gadget names only — hints are free-style, seniors write whatever they like.
+const GADGETS = ['Bamboo Copter', 'Anywhere Door', 'Search Light', 'Out of the Drawer'];
+const HINT_PLACEHOLDER = 'Write anything about yourself…';
 
 const $ = s => document.querySelector(s);
 const app = $('#app');
@@ -129,7 +126,9 @@ function screenRegister() {
       '<label>Baan<select name="house" required>' + opts(BAANS, 1) + '</select></label>' +
       '<div id="seniorOnly" hidden>' +
         '<label>How many juniors can you take?<select name="capacity">' + opts(5, 1) + '</select></label>' +
-        hintFields() +
+        // Prefill on edit — register() overwrites all four columns, so empty
+        // boxes here would silently wipe hints the senior already wrote.
+        hintFields(isEdit ? me.hints : null) +
       '</div>' +
       '<button type="submit">' + (isEdit ? 'Save changes' : 'Register') + '</button>' +
     '</form>'
@@ -141,13 +140,19 @@ function screenRegister() {
   $('#f').addEventListener('submit', submitRegister);
 }
 
+/** Four free-style boxes. Only the ordering is guided, never the subject. */
 function hintFields(values) {
-  return HINT_LABELS.map((h, i) =>
-    '<label>Hint ' + (i + 1) + ' · ' + h.g +
-      '<span class="hintof">' + h.q + '<br>' + h.eg + '</span>' +
-      '<textarea name="hint' + (i + 1) + '" minlength="15" maxlength="200"' +
-        (i === 0 ? ' required' : '') + '>' + esc(values ? values[i] : '') + '</textarea>' +
-    '</label>').join('');
+  return '<p class="hintof" style="margin:0 0 4px">Write anything you like. ' +
+      'Order them <b>vague → obvious</b>: hint 1 is cheapest for your junior, ' +
+      'hint 4 gives you away.</p>' +
+    GADGETS.map((g, i) =>
+      '<label>Hint ' + (i + 1) + ' · ' + g +
+        (i === 0 ? '<span class="hintof">Required — the one every junior can afford.</span>'
+                 : '<span class="hintof">Optional</span>') +
+        '<textarea name="hint' + (i + 1) + '" minlength="15" maxlength="200"' +
+          ' placeholder="' + HINT_PLACEHOLDER + '"' +
+          (i === 0 ? ' required' : '') + '>' + esc(values ? values[i] : '') + '</textarea>' +
+      '</label>').join('');
 }
 
 async function submitRegister(ev) {
@@ -219,7 +224,6 @@ function screenWallet() {
     (me.pairStatus === 'overflow'
       ? note('err', 'You have no senior assigned yet — please talk to a staff member.') : '') +
     me.hints.map(h => {
-      const meta = HINT_LABELS[h.level - 1];
       let action;
       if (h.unlocked) action = '<span class="pill on">Unlocked</span>';
       else if (!h.available) action = '<span class="pill">Locked</span>';
@@ -228,8 +232,9 @@ function screenWallet() {
         (h.cost ? h.cost + (h.cost > 1 ? ' coins' : ' coin') : 'Free') + '</button>';
 
       return '<div class="card">' +
-        '<div class="lv"><div><h3>Hint ' + h.level + ' · ' + meta.g + '</h3>' +
-          '<small>' + meta.q + '</small></div>' + action + '</div>' +
+        '<div class="lv"><div><h3>Hint ' + h.level + ' · ' + GADGETS[h.level - 1] + '</h3>' +
+          '<small>' + (h.cost ? 'Costs ' + h.cost + (h.cost > 1 ? ' coins' : ' coin')
+                              : 'Free at the reveal') + '</small></div>' + action + '</div>' +
         (h.unlocked ? '<div class="txt">' + esc(h.text) + '</div>' : '') +
       '</div>';
     }).join('')
@@ -345,12 +350,20 @@ const SCREENS = { register: screenRegister, hint: screenHint, quest: screenQuest
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) return liff.login();
 
-    me = await api('me');
+    // Start the backend call and paint in parallel. The registration form needs
+    // no data to draw, so a first-time user sees it immediately instead of
+    // staring at "Loading…" for the whole Apps Script round trip.
+    const pending = api('me');
+    if (page === 'register') screenRegister();
+
+    me = await pending;
     if (me.error) return render(note('err', me.message || 'Could not sign you in'));
     if (!me.registered && page !== 'register') {
       return render('<h1>Not registered yet</h1>' +
         '<div class="card"><p class="sub">Tap <b>Register</b> in the chat menu first.</p></div>');
     }
+    // Re-draw register only if there is something to prefill.
+    if (page === 'register' && !me.registered) return;
     (SCREENS[page] || screenWallet)();
   } catch (err) {
     render(note('err', 'Something went wrong: ' + err.message) +

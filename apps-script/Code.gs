@@ -30,11 +30,19 @@ const TABS = {
 
 function tab(name) { return SpreadsheetApp.getActive().getSheetByName(name); }
 
-/** Whole tab as objects. `_row` is the 1-based sheet row, for writes. */
+/**
+ * Whole tab as objects. `_row` is the 1-based sheet row, for writes.
+ *
+ * Memoized per execution: a single `me` call used to read participants,
+ * submissions and hint_unlocks twice each. Any write drops the cache, so
+ * read-after-write still sees fresh data.
+ */
+let _rows = {};
 function rows(name) {
+  if (_rows[name]) return _rows[name];
   const v = tab(name).getDataRange().getValues();
   const head = v.shift();
-  return v.map((r, i) => {
+  return _rows[name] = v.map((r, i) => {
     const o = { _row: i + 2 };
     head.forEach((k, j) => o[k] = r[j]);
     return o;
@@ -43,6 +51,7 @@ function rows(name) {
 
 function appendRow(name, obj) {
   tab(name).appendRow(TABS[name].map(k => obj[k] === undefined ? '' : obj[k]));
+  delete _rows[name];
 }
 
 /** Patch named columns on one row. */
@@ -52,6 +61,7 @@ function updateRow(name, rowNum, patch) {
     const col = TABS[name].indexOf(k) + 1;
     if (col > 0) sheet.getRange(rowNum, col).setValue(patch[k]);
   });
+  delete _rows[name];
 }
 
 function prop(key) { return PropertiesService.getScriptProperties().getProperty(key); }
@@ -123,16 +133,33 @@ function api(body) {
   try { return fn(uid, body); } finally { lock.releaseLock(); }
 }
 
-/** The only userId we ever trust. A POSTed one can be edited in devtools. */
+/**
+ * The only userId we ever trust. A POSTed one can be edited in devtools.
+ *
+ * Successful verifications are cached for 10 min keyed by a digest of the token
+ * itself, which saves a round trip to api.line.me on every tap. Safe: the token
+ * is signed, so the same token always maps to the same user. Failures are never
+ * cached.
+ */
 function verifyIdToken(idToken) {
   if (!idToken) return null;
+
+  const cache = CacheService.getScriptCache();
+  const key = 'idt_' + Utilities.base64EncodeWebSafe(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, idToken));
+  const hit = cache.get(key);
+  if (hit) return hit;
+
   const res = UrlFetchApp.fetch('https://api.line.me/oauth2/v2.1/verify', {
     method: 'post',
     payload: { id_token: idToken, client_id: prop('LOGIN_CHANNEL_ID') },
     muteHttpExceptions: true,
   });
   if (res.getResponseCode() !== 200) return null;
-  return JSON.parse(res.getContentText()).sub;
+
+  const sub = JSON.parse(res.getContentText()).sub;
+  if (sub) cache.put(key, sub, 600);
+  return sub;
 }
 
 // ---------- actions ---------------------------------------------------------

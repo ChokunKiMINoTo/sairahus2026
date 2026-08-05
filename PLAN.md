@@ -133,32 +133,39 @@ never showed gets reassigned within their house to a checked-in senior with
 spare capacity; only affected seniors are notified. One button instead of
 thirty minutes of paper.
 
-**5. Hints — senior-authored, four free-text boxes.** Juniors already know
+**5. Hints — senior-authored, four free-style boxes.** Juniors already know
 their Baan and pairing is within-Baan, so the search space is ~10 people
-from the start. A generated village→house ladder would reveal nothing they
+from the start. A generated village→Baan ladder would reveal nothing they
 don't already know. The fun is the senior writing their own clues, so the
-system stores strings and does not generate anything:
+system stores four strings and generates nothing and prescribes nothing:
 
-| Lv | Gadget | Prompt shown to the senior | Cost |
+| Lv | Gadget | Content | Cost |
 |---|---|---|---|
-| 1 | Bamboo Copter | "A view from above — a broad trait or hobby" | 1 |
-| 2 | Anywhere Door | "Something people usually get wrong about you" | 1 |
-| 3 | Search Light | "Event-day marker — what you are wearing, where you'll be" | 2 |
-| 4 | Out of the Drawer | "Your initials + the first thing you'll say" | free at REVEAL |
+| 1 | Bamboo Copter | senior's choice | 1 |
+| 2 | Anywhere Door | senior's choice | 1 |
+| 3 | Search Light | senior's choice | 2 |
+| 4 | Out of the Drawer | senior's choice | free at REVEAL |
+
+**No fixed topics.** The gadget names are flavour only. The one thing the form
+guides is *ordering* — "vague → obvious, hint 1 is cheapest, hint 4 gives you
+away" — because price is the only signal a junior has about what they're
+buying. Guiding order costs one sentence; prescribing subject matter costs the
+event its personality.
 
 Level 4 is free so nobody goes home without finding their senior.
 
 Three things this costs us, all cheap:
 
-- **Level 3 is stale.** Seniors register weeks early and can't know what
-  they'll wear. Rich menu tile "My hints" opens `?p=hint` — the same form
-  in edit mode, phase-gated to event day morning. No new code path.
+- **Hints go stale.** A senior who wrote "wearing my blue jacket" in week one
+  is wrong on the day. Rich menu tile "My hints" opens `?p=hint` — the same
+  form in edit mode, any time. No new code path.
 - **Blank hints.** *Never charge a coin for empty text.* Check the cell
   before deducting; if blank, reply "your senior hasn't written this yet" and refund
   nothing because nothing was taken. This is the one guard that turns a
   lazy feature into an angry junior otherwise.
-- **Lazy hints.** `minlength=15` on the textarea plus a filled-in example
-  placeholder per box. Staff menu gets a "seniors with no hints" count → nag list.
+- **Lazy hints.** `minlength=15` on every box, hint 1 required at registration
+  so at least one always exists. Staff menu gets a "seniors with no hints"
+  count → nag list.
 
 **6. Staff menu** — Review quests, Change phase, Check-in counts, Cut-off & rematch.
 Phase and cut-off gated to 2–3 hardcoded lead userIds in `config`.
