@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>สายรหัส 2026</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{ --blue:#2A7DE1; --deep:#1B5FB0; --red:#E60012; --yellow:#FFCC00;
+         --ink:#16233A; --mute:#6B7A90; --line:#DDE5F0; --bg:#F3F7FD; }
+  *{ box-sizing:border-box }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-size:16px;
+        font-family:-apple-system,"Helvetica Neue","Noto Sans Thai",sans-serif; }
+  #app{ max-width:520px; margin:0 auto; padding:16px 16px 40px }
+  h1{ font-size:20px; margin:0 0 4px }
+  .sub{ color:var(--mute); font-size:14px; margin:0 0 16px }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:14px;
+         padding:16px; margin-bottom:12px }
+  label{ display:block; font-weight:600; font-size:14px; margin:14px 0 6px }
+  label:first-child{ margin-top:0 }
+  .hintof{ font-weight:400; color:var(--mute); font-size:13px; display:block; margin-top:2px }
+  input,select,textarea{ width:100%; padding:11px 12px; font:inherit; color:inherit;
+         border:1px solid var(--line); border-radius:10px; background:#fff; }
+  input:focus,select,textarea:focus{ outline:2px solid var(--blue); outline-offset:-1px }
+  textarea{ min-height:76px; resize:vertical }
+  button{ width:100%; padding:14px; font:inherit; font-weight:700; color:#fff;
+          background:var(--blue); border:0; border-radius:999px; margin-top:18px; cursor:pointer }
+  button:disabled{ background:var(--mute); cursor:default }
+  button.ghost{ background:#fff; color:var(--blue); border:2px solid var(--blue); margin-top:8px }
+  button.warn{ background:var(--red) }
+  button.row{ width:auto; flex:1; margin:0; padding:11px }
+  .flex{ display:flex; gap:8px; margin-top:12px }
+  .coins{ display:flex; align-items:center; gap:10px; background:var(--blue); color:#fff;
+          border-radius:14px; padding:16px; margin-bottom:12px }
+  .coins b{ font-size:32px; line-height:1 }
+  .lv{ display:flex; justify-content:space-between; align-items:center; gap:12px }
+  .lv h3{ margin:0 0 2px; font-size:15px }
+  .lv small{ color:var(--mute) }
+  .txt{ margin-top:12px; padding:12px; background:var(--bg); border-radius:10px;
+        border-left:4px solid var(--yellow); white-space:pre-wrap }
+  .pill{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px;
+         font-weight:700; background:var(--bg); color:var(--mute) }
+  .pill.on{ background:var(--yellow); color:var(--ink) }
+  .code{ font-size:34px; letter-spacing:14px; text-align:center; font-weight:700 }
+  .msg{ padding:12px; border-radius:10px; margin-bottom:12px; font-size:14px }
+  .msg.err{ background:#FDE8E9; color:#A3000C }
+  .msg.ok{ background:#E4F3E7; color:#1B6B2C }
+  .sub-img{ width:100%; border-radius:10px; display:block; background:var(--bg) }
+  dl{ display:grid; grid-template-columns:1fr auto; gap:8px 12px; margin:0 }
+  dt{ color:var(--mute); font-size:14px }
+  dd{ margin:0; font-weight:700; text-align:right }
+  ul{ margin:8px 0 0; padding-left:20px; color:var(--mute); font-size:14px }
+</style>
+</head>
+<body>
+<div id="app"><p class="sub">กำลังโหลด…</p></div>
+
+<script>
+// Fill these in after deploying. LIFF_ID from the LINE Login channel, API from
+// the Apps Script web app deployment (Anyone can access).
+const LIFF_ID = 'PASTE_LIFF_ID';
+const API = 'PASTE_APPS_SCRIPT_EXEC_URL';
+
+const HINT_LABELS = [
+  { g: 'คอปเตอร์ไม้ไผ่',       q: 'มองจากมุมสูง — บอกนิสัยหรืองานอดิเรกกว้าง ๆ',
+    eg: 'เช่น "พี่เป็นคนเสียงดัง ชอบอยู่ท้ายห้อง และติดกาแฟมาก"' },
+  { g: 'ประตูไปที่ไหนก็ได้',  q: 'เรื่องที่คนมักเข้าใจผิดเกี่ยวกับพี่',
+    eg: 'เช่น "หน้าดุแต่จริง ๆ ขี้กลัว ใครเห็นครั้งแรกไม่กล้าทัก"' },
+  { g: 'ไฟฉายส่องหา',          q: 'จุดสังเกตวันงาน — วันนี้พี่ใส่อะไร อยู่แถวไหน',
+    eg: 'เช่น "ใส่เสื้อเชิ้ตลายสก็อตสีฟ้า ยืนใกล้โต๊ะลงทะเบียน"' },
+  { g: 'โผล่ออกมาจากลิ้นชัก',  q: 'ชื่อย่อ + ประโยคที่จะพูดตอนเจอกัน',
+    eg: 'เช่น "พี่ก้อง — จะพูดว่า หาพี่เจอแล้วเหรอ"' },
+];
+
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g,
+  c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const page = new URLSearchParams(location.search).get('p') || 'wallet';
+
+let me = {};
+
+async function api(action, data) {
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },   // text/plain avoids a CORS preflight
+    body: JSON.stringify(Object.assign({ action, idToken: liff.getIDToken() }, data || {})),
+  });
+  return res.json();
+}
+
+function render(html) { app.innerHTML = html; }
+function note(kind, text) {
+  return text ? '<div class="msg ' + kind + '">' + esc(text) + '</div>' : '';
+}
+function flash(kind, text) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + kind;
+  el.textContent = text;
+  app.prepend(el);
+  window.scrollTo(0, 0);
+}
+
+// ---------- screens ---------------------------------------------------------
+
+function screenRegister() {
+  const isEdit = me.registered;
+  const opts = (n, from) => Array.from({ length: n }, (_, i) =>
+    '<option value="' + (i + from) + '">' + (i + from) + '</option>').join('');
+
+  render(
+    '<h1>สมัครเข้าร่วม สายรหัส 2026</h1>' +
+    '<p class="sub">' + (isEdit ? 'แก้ไขข้อมูลของคุณ' : 'กรอกครั้งเดียว ใช้ตลอดงาน') + '</p>' +
+    '<form id="f" class="card">' +
+      '<label>สถานะ<select name="role" id="role" required>' +
+        '<option value="">— เลือก —</option>' +
+        '<option value="junior">น้องรหัส</option><option value="senior">พี่รหัส</option>' +
+      '</select></label>' +
+      '<label>ชื่อเล่น<input name="nickname" required maxlength="30"></label>' +
+      '<label>ชื่อ-นามสกุล<input name="realName" required maxlength="80"></label>' +
+      '<label>รหัสนักศึกษา<input name="studentId" required inputmode="numeric" pattern="\\d{7,12}"></label>' +
+      '<label>อีเมลมหาวิทยาลัย' +
+        '<span class="hintof">ใช้ติดต่อสำรองเฉพาะงานนี้ เห็นเฉพาะสตาฟ</span>' +
+        '<input type="email" name="email" required></label>' +
+      '<label>ชั้นปี<select name="year" required>' + opts(8, 1) + '</select></label>' +
+      '<label>บ้านย่อย<select name="house" required>' + opts(20, 1) + '</select></label>' +
+      '<div id="seniorOnly" hidden>' +
+        '<label>รับน้องรหัสได้กี่คน<select name="capacity">' + opts(5, 1) + '</select></label>' +
+        hintFields() +
+      '</div>' +
+      '<button type="submit">' + (isEdit ? 'บันทึกการแก้ไข' : 'สมัคร') + '</button>' +
+    '</form>'
+  );
+
+  const toggle = () => $('#seniorOnly').hidden = $('#role').value !== 'senior';
+  $('#role').addEventListener('change', toggle);
+  if (isEdit) { $('#role').value = me.role; toggle(); }
+  $('#f').addEventListener('submit', submitRegister);
+}
+
+function hintFields(values) {
+  return HINT_LABELS.map((h, i) =>
+    '<label>ใบ้ข้อ ' + (i + 1) + ' · ' + h.g +
+      '<span class="hintof">' + h.q + '<br>' + h.eg + '</span>' +
+      '<textarea name="hint' + (i + 1) + '" minlength="15" maxlength="200"' +
+        (i === 0 ? ' required' : '') + '>' + esc(values ? values[i] : '') + '</textarea>' +
+    '</label>').join('');
+}
+
+async function submitRegister(ev) {
+  ev.preventDefault();
+  const btn = ev.target.querySelector('button');
+  btn.disabled = true;
+  const data = Object.fromEntries(new FormData(ev.target));
+  const res = await api('register', data);
+  btn.disabled = false;
+  if (res.error) return flash('err', res.message || 'สมัครไม่สำเร็จ');
+  render('<div class="card"><h1>เรียบร้อย 🔵</h1>' +
+    '<p class="sub">ปิดหน้านี้แล้วใช้เมนูด้านล่างในแชทได้เลย</p></div>');
+  setTimeout(() => liff.closeWindow(), 1500);
+}
+
+/** Seniors rewriting their hints — mostly hint 3 on the morning of the event. */
+function screenHint() {
+  if (me.role !== 'senior') return render(note('err', 'หน้านี้สำหรับพี่รหัสเท่านั้น'));
+  render(
+    '<h1>ใบ้ของฉัน</h1>' +
+    '<p class="sub">น้องต้องจ่ายเหรียญเพื่อเปิดทีละข้อ เขียนให้เดายากแต่เดาได้</p>' +
+    '<form id="f" class="card">' + hintFields(me.hints) +
+      '<button type="submit">บันทึก</button></form>'
+  );
+  $('#f').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const btn = ev.target.querySelector('button');
+    btn.disabled = true;
+    const res = await api('saveHints', Object.fromEntries(new FormData(ev.target)));
+    btn.disabled = false;
+    flash(res.error ? 'err' : 'ok', res.error ? (res.message || 'บันทึกไม่สำเร็จ') : 'บันทึกแล้ว');
+  });
+}
+
+function screenQuest() {
+  if (!me.round) return render(note('err', 'ยังไม่ถึงรอบส่งภารกิจ'));
+  render(
+    '<h1>ส่งภารกิจ รอบ ' + me.round + '</h1>' +
+    '<p class="sub">เลือกภารกิจก่อน แล้วกลับไปส่งรูปในแชท</p>' +
+    me.quests.map(q =>
+      '<div class="card lv"><div><h3>' + esc(q) + '</h3>' +
+        '<small>' + (me.submitted.indexOf(q) >= 0 ? 'ส่งแล้ว' : 'ยังไม่ส่ง') + '</small></div>' +
+        (me.submitted.indexOf(q) >= 0 ? '<span class="pill on">✓</span>' :
+          '<button class="row" data-q="' + esc(q) + '">เลือก</button>') +
+      '</div>').join('')
+  );
+  app.querySelectorAll('button[data-q]').forEach(b => b.addEventListener('click', async () => {
+    b.disabled = true;
+    const res = await api('pickQuest', { round: me.round, questId: b.dataset.q });
+    if (res.error) { b.disabled = false; return flash('err', res.message || 'เลือกไม่สำเร็จ'); }
+    render('<div class="card"><h1>เลือกแล้ว</h1>' +
+      '<p class="sub">กลับไปที่แชท แล้วส่ง <b>รูปภาพ</b> ของภารกิจนี้ได้เลย</p></div>');
+    setTimeout(() => liff.closeWindow(), 1800);
+  }));
+}
+
+function screenWallet() {
+  if (me.role === 'senior') {
+    return render('<h1>กระเป๋าวิเศษ</h1>' +
+      '<div class="card"><dl><dt>น้องรหัสของฉัน</dt><dd>' + me.juniorCount + ' คน</dd>' +
+      '<dt>รับได้สูงสุด</dt><dd>' + me.capacity + ' คน</dd></dl></div>');
+  }
+
+  render(
+    '<h1>กระเป๋าวิเศษ</h1>' +
+    '<div class="coins"><b>' + me.balance + '</b>' +
+      '<div>เหรียญโดรายากิ<br><small>ทำภารกิจให้ผ่านเพื่อรับเพิ่ม</small></div></div>' +
+    (me.pairStatus === 'สมทบ'
+      ? note('err', 'ยังไม่ได้จับคู่พี่รหัส ติดต่อสตาฟได้เลย') : '') +
+    me.hints.map(h => {
+      const meta = HINT_LABELS[h.level - 1];
+      let action;
+      if (h.unlocked) action = '<span class="pill on">เปิดแล้ว</span>';
+      else if (!h.available) action = '<span class="pill">ยังไม่เปิด</span>';
+      else if (!h.written) action = '<span class="pill">พี่ยังไม่เขียน</span>';
+      else action = '<button class="row" data-lv="' + h.level + '">' +
+        (h.cost ? h.cost + ' เหรียญ' : 'ฟรี') + '</button>';
+
+      return '<div class="card">' +
+        '<div class="lv"><div><h3>ใบ้ ' + h.level + ' · ' + meta.g + '</h3>' +
+          '<small>' + meta.q + '</small></div>' + action + '</div>' +
+        (h.unlocked ? '<div class="txt">' + esc(h.text) + '</div>' : '') +
+      '</div>';
+    }).join('')
+  );
+
+  app.querySelectorAll('button[data-lv]').forEach(b => b.addEventListener('click', async () => {
+    b.disabled = true;
+    const res = await api('unlockHint', { level: b.dataset.lv });
+    if (res.error) { b.disabled = false; return flash('err', res.message || 'เปิดใบ้ไม่สำเร็จ'); }
+    me = await api('me');
+    screenWallet();
+  }));
+}
+
+function screenCheckin() {
+  if (me.checkedIn) {
+    return render('<h1>เช็คอินแล้ว ✓</h1>' +
+      '<div class="card"><p class="sub">ไปที่หมู่บ้าน ' + esc(me.village || '-') +
+      ' บ้านย่อย ' + esc(me.house) + ' ได้เลย</p></div>');
+  }
+  render(
+    '<h1>เช็คอิน</h1>' +
+    '<p class="sub">กรอก "รหัสประตูไปที่ไหนก็ได้" 4 หลักที่ป้ายหน้างาน</p>' +
+    '<form id="f" class="card">' +
+      '<input class="code" name="code" inputmode="numeric" pattern="\\d{4}" maxlength="4" required autofocus>' +
+      '<button type="submit">เช็คอิน</button></form>'
+  );
+  $('#f').addEventListener('submit', async ev => {
+    ev.preventDefault();
+    const btn = ev.target.querySelector('button');
+    btn.disabled = true;
+    const res = await api('checkin', { code: ev.target.code.value });
+    btn.disabled = false;
+    if (res.error) return flash('err', res.message || 'เช็คอินไม่สำเร็จ');
+    me = await api('me');
+    screenCheckin();
+  });
+}
+
+async function screenStaff() {
+  const s = await api('stats');
+  if (s.error) return render(note('err', 'หน้านี้สำหรับสตาฟเท่านั้น'));
+
+  const phases = ['REGISTER','QUEST_R1','QUEST_R2','QUEST_R3','CHECKIN','HUNT','REVEAL'];
+  render(
+    '<h1>สตาฟ</h1><p class="sub">เฟสตอนนี้: <b>' + esc(s.phase) + '</b></p>' +
+    '<div class="card"><dl>' +
+      '<dt>น้องเช็คอิน</dt><dd>' + s.checkedInJuniors + ' / ' + s.juniors + '</dd>' +
+      '<dt>พี่เช็คอิน</dt><dd>' + s.checkedInSeniors + ' / ' + s.seniors + '</dd>' +
+      '<dt>ยังไม่จับคู่</dt><dd>' + s.unpaired + '</dd>' +
+      '<dt>รอตรวจภารกิจ</dt><dd>' + s.pendingReviews + '</dd>' +
+      '<dt>รหัสเช็คอิน</dt><dd>' + esc(s.checkinCode) + '</dd>' +
+    '</dl>' +
+    (s.noHints.length ? '<p class="sub" style="margin:14px 0 0">พี่ที่ยังไม่เขียนใบ้ (' +
+      s.noHints.length + ')</p><ul>' + s.noHints.slice(0, 20).map(n => '<li>' + esc(n) + '</li>').join('') +
+      '</ul>' : '') +
+    '</div>' +
+    (s.isLead ?
+      '<div class="card"><label>เปลี่ยนเฟส<select id="ph">' +
+        phases.map(p => '<option' + (p === s.phase ? ' selected' : '') + '>' + p + '</option>').join('') +
+      '</select></label><button id="setph">เปลี่ยนเฟส</button>' +
+      '<button id="cut" class="warn">ตัดยอด &amp; จับคู่ใหม่</button></div>' : '') +
+    '<button id="rev" class="ghost">ตรวจภารกิจ (' + s.pendingReviews + ')</button>'
+  );
+
+  if (s.isLead) {
+    $('#setph').addEventListener('click', async () => {
+      const res = await api('setPhase', { phase: $('#ph').value });
+      flash(res.error ? 'err' : 'ok', res.error ? 'เปลี่ยนไม่สำเร็จ' : 'เปลี่ยนเป็น ' + res.phase);
+    });
+    $('#cut').addEventListener('click', async () => {
+      if (!confirm('ตัดยอดและจับคู่น้องที่พี่ไม่มาใหม่? ทำได้ครั้งเดียวตอน 13:30')) return;
+      $('#cut').disabled = true;
+      const res = await api('cutoff');
+      flash('ok', 'ย้ายน้อง ' + res.moved + ' คน, ยังค้าง ' + res.stranded + ' คน');
+    });
+  }
+  $('#rev').addEventListener('click', screenReview);
+}
+
+async function screenReview() {
+  const res = await api('pending');
+  if (res.error) return render(note('err', 'ไม่มีสิทธิ์'));
+  if (!res.items.length) return render('<h1>ตรวจภารกิจ</h1>' + note('ok', 'ตรวจครบแล้ว 🎉'));
+
+  render('<h1>ตรวจภารกิจ</h1><p class="sub">เหลือ ' + res.items.length + ' รายการ</p>' +
+    res.items.map(it =>
+      '<div class="card" id="s' + it.row + '">' +
+        '<p class="sub" style="margin:0 0 8px"><b>' + esc(it.who) + '</b> · รอบ ' +
+          esc(it.round) + ' · ' + esc(it.questId) + '</p>' +
+        '<img class="sub-img" src="' + esc(it.img) + '" loading="lazy" alt="">' +
+        '<div class="flex">' +
+          '<button class="row" data-row="' + it.row + '" data-pass="1">ผ่าน</button>' +
+          '<button class="row warn" data-row="' + it.row + '" data-pass="">ไม่ผ่าน</button>' +
+        '</div></div>').join('')
+  );
+
+  app.querySelectorAll('button[data-row]').forEach(b => b.addEventListener('click', async () => {
+    const card = $('#s' + b.dataset.row);
+    card.querySelectorAll('button').forEach(x => x.disabled = true);
+    await api('review', { row: b.dataset.row, pass: !!b.dataset.pass });
+    card.remove();
+  }));
+}
+
+// ---------- boot ------------------------------------------------------------
+
+const SCREENS = { register: screenRegister, hint: screenHint, quest: screenQuest,
+                  wallet: screenWallet, checkin: screenCheckin, staff: screenStaff };
+
+(async function () {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) return liff.login();
+
+    me = await api('me');
+    if (me.error) return render(note('err', me.message || 'เข้าสู่ระบบไม่สำเร็จ'));
+    if (!me.registered && page !== 'register') {
+      return render('<h1>ยังไม่ได้สมัคร</h1>' +
+        '<div class="card"><p class="sub">กดเมนู "สมัคร" ในแชทเพื่อลงทะเบียนก่อน</p></div>');
+    }
+    (SCREENS[page] || screenWallet)();
+  } catch (err) {
+    render(note('err', 'เกิดข้อผิดพลาด: ' + err.message) +
+      '<button onclick="location.reload()">ลองใหม่</button>');
+  }
+})();
+</script>
+</body>
+</html>
