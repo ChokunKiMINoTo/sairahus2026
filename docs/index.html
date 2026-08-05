@@ -119,9 +119,14 @@ function screenRegister() {
       '<label>Nickname<input name="nickname" required maxlength="30"></label>' +
       '<label>Full name<input name="realName" required maxlength="80"></label>' +
       '<label>Student ID<input name="studentId" required inputmode="numeric" pattern="\\d{7,12}"></label>' +
-      '<label>University email (@student.mahidol)' +
-        '<span class="hintof">Backup contact for this event only.</span>' +
-        '<input type="email" name="email" required></label>' +
+      '<label>University email' +
+        '<span class="hintof">@student.mahidol.ac.th or @student.mahidol.edu. ' +
+          'Backup contact for this event only.</span>' +
+        // Instant feedback on a wrong domain. EMAIL_DOMAIN in the config sheet is
+        // still the authority — the server re-checks.
+        '<input type="email" name="email" required' +
+          ' pattern="[^@\\s]+@student\\.mahidol\\.(ac\\.th|edu)"' +
+          ' title="Use @student.mahidol.ac.th or @student.mahidol.edu"></label>' +
       '<label>Year<select name="year" required>' + opts(YEARS, 1) + '</select></label>' +
       '<label>Baan<select name="house" required>' + opts(BAANS, 1) + '</select></label>' +
       '<div id="seniorOnly" hidden>' +

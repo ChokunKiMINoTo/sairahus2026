@@ -337,7 +337,7 @@ In the `config` tab:
 | -------------------------------- | -------------------------------------------------------------- |
 | `PHASE`                          | `REGISTER`                                                     |
 | `CHECKIN_CODE`                   | any 4 digits — the number on the door sign                     |
-| `EMAIL_DOMAIN`                   | your university's student domain, e.g. `student.mahidol.ac.th` |
+| `EMAIL_DOMAIN`                   | accepted student email domains, `\|`-separated: `student.mahidol.ac.th\|student.mahidol.edu`. Leave blank to accept any domain. |
 | `QUEST_R1` `QUEST_R2` `QUEST_R3` | 3 quest titles each, separated by `|`                          |
 
 

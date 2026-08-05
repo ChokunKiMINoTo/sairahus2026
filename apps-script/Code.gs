@@ -476,11 +476,15 @@ function validateRegistration(b) {
   if (!b.realName || !b.realName.trim()) return 'Full name is required.';
   if (!/^\d{7,12}$/.test(String(b.studentId || '').trim())) return 'Student ID must be 7-12 digits.';
 
-  const domain = String(cfg('EMAIL_DOMAIN') || '').trim();
   const email = String(b.email || '').trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return 'That email address is not valid.';
-  if (domain && email.slice(-domain.length - 1) !== '@' + domain) {
-    return 'Use your university email (@' + domain + ') only.';
+  // EMAIL_DOMAIN is `|`-separated, same convention as QUEST_R*. Exact match on
+  // the part after the last @ — a suffix test would let through
+  // notstudent.mahidol.ac.th.
+  const domains = String(cfg('EMAIL_DOMAIN') || '').toLowerCase().split('|')
+    .map(d => d.trim().replace(/^@/, '')).filter(String);
+  if (domains.length && domains.indexOf(email.slice(email.lastIndexOf('@') + 1)) < 0) {
+    return 'Use your university email (' + domains.map(d => '@' + d).join(' or ') + ') only.';
   }
 
   const house = Number(b.house);
@@ -506,7 +510,8 @@ function setupSheets() {
     const sheet = ss.getSheetByName(name) || ss.insertSheet(name);
     if (sheet.getLastRow() === 0) sheet.appendRow(TABS[name]);
   });
-  [['PHASE', 'REGISTER'], ['CHECKIN_CODE', '4126'], ['EMAIL_DOMAIN', 'student.mahidol.ac.th'],
+  [['PHASE', 'REGISTER'], ['CHECKIN_CODE', '4126'],
+   ['EMAIL_DOMAIN', 'student.mahidol.ac.th|student.mahidol.edu'],
    ['LEAD_IDS', ''], ['DRIVE_FOLDER_ID', ''], ['RICHMENU_GUEST', ''], ['RICHMENU_JUNIOR', ''],
    ['RICHMENU_SENIOR', ''], ['RICHMENU_STAFF', ''],
    ['QUEST_R1', 'Photo with a new friend|Photo at the faculty sign|Photo of your favourite thing'],
