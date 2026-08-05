@@ -9,7 +9,7 @@
 // ---------- pure logic ------------------------------------------------------
 
 /**
- * One บ้านย่อย. Juniors go to whichever senior has the most room left, so the
+ * One Baan. Juniors go to whichever senior has the most room left, so the
  * load spreads evenly instead of filling seniors one at a time.
  * Returns { pairs: {juniorId: seniorId}, overflow: [juniorId] }.
  */
@@ -114,7 +114,7 @@ function runMatch() {
       report.paired++;
     });
     result.overflow.forEach(jid => {
-      updateRow('participants', rowOf[jid], { seniorId: '', pairStatus: 'สมทบ' });
+      updateRow('participants', rowOf[jid], { seniorId: '', pairStatus: OVERFLOW });
       report.overflow.push(jid);
     });
     if (result.overflow.length) report.shortHouses.push(house);
@@ -168,8 +168,8 @@ function runCutoff() {
     newJuniors[sid] = (newJuniors[sid] || 0) + 1;
   });
   Object.keys(newJuniors).forEach(sid => {
-    push(sid, 'มีน้องย้ายมาอยู่กับพี่เพิ่ม ' + newJuniors[sid] + ' คน 🔵\n' +
-      'เปิดเมนู "น้องของฉัน" เพื่อดูรายชื่อ');
+    push(sid, newJuniors[sid] + ' more junior(s) have been assigned to you 🔵\n' +
+      'Open the "Magic Pocket" menu to see your list.');
   });
 
   const report = { moved: moved.length, stranded: stranded.length, strandedIds: stranded };

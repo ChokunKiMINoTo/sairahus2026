@@ -1,5 +1,5 @@
 /**
- * สายรหัส 2026 — backend for the LINE bot and the LIFF screens.
+ * Sairahus 2026 — backend for the LINE bot and the LIFF screens.
  * Container-bound to the event Spreadsheet.
  *
  * Secrets  -> Script Properties (staff can read the Sheet, not the properties)
@@ -9,6 +9,13 @@
 const PHASES = ['REGISTER', 'QUEST_R1', 'QUEST_R2', 'QUEST_R3', 'CHECKIN', 'HUNT', 'REVEAL'];
 const HINT_COST = { 1: 1, 2: 1, 3: 2, 4: 0 };
 const HINT_MIN = 15;
+const YEARS = 4;    // years 1-4
+const BAANS = 10;   // Baan 1-10
+
+// Sheet values. Staff read these columns directly, so keep them readable.
+const PASS = 'pass';
+const FAIL = 'fail';
+const OVERFLOW = 'overflow';   // junior with no senior in their Baan
 
 const TABS = {
   participants: ['lineUserId', 'nickname', 'realName', 'studentId', 'email', 'year', 'house',
@@ -104,7 +111,7 @@ const WRITE_ACTIONS = ['register', 'saveHints', 'pickQuest', 'unlockHint', 'chec
 
 function api(body) {
   const uid = verifyIdToken(body.idToken);
-  if (!uid) return { error: 'auth', message: 'เข้าสู่ระบบใหม่อีกครั้ง' };
+  if (!uid) return { error: 'auth', message: 'Please sign in again.' };
 
   const fn = ACTIONS[body.action];
   if (!fn) return { error: 'unknown_action' };
@@ -112,7 +119,7 @@ function api(body) {
   if (WRITE_ACTIONS.indexOf(body.action) < 0) return fn(uid, body);
 
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(20000)) return { error: 'busy', message: 'ระบบกำลังหนาแน่น ลองใหม่อีกครั้ง' };
+  if (!lock.tryLock(20000)) return { error: 'busy', message: 'System is busy — please try again.' };
   try { return fn(uid, body); } finally { lock.releaseLock(); }
 }
 
@@ -157,7 +164,7 @@ const ACTIONS = {
     out.round = currentRound();
     out.quests = out.round ? quests(out.round) : [];
     out.submitted = rows('submissions')
-      .filter(s => s.userId === uid && Number(s.round) === out.round && s.status !== 'ไม่ผ่าน')
+      .filter(s => s.userId === uid && Number(s.round) === out.round && s.status !== FAIL)
       .map(s => s.questId);
     return out;
   },
@@ -195,7 +202,7 @@ const ACTIONS = {
     const p = findUser(uid);
     if (!p || p.role !== 'senior') return { error: 'not_senior' };
     if (!b.hint1 || b.hint1.trim().length < HINT_MIN) {
-      return { error: 'invalid', message: 'ใบ้ข้อ 1 ต้องยาวอย่างน้อย ' + HINT_MIN + ' ตัวอักษร' };
+      return { error: 'invalid', message: 'Hint 1 must be at least ' + HINT_MIN + ' characters.' };
     }
     updateRow('participants', p._row, {
       hint1: b.hint1.trim(), hint2: (b.hint2 || '').trim(),
@@ -207,12 +214,12 @@ const ACTIONS = {
   /** Remember which quest the next uploaded photo belongs to. */
   pickQuest: function (uid, b) {
     const round = Number(b.round);
-    if (!phaseAtLeast('QUEST_R' + round)) return { error: 'phase', message: 'ยังไม่เปิดรอบนี้' };
+    if (!phaseAtLeast('QUEST_R' + round)) return { error: 'phase', message: 'This round is not open yet.' };
     if (quests(round).indexOf(b.questId) < 0) return { error: 'invalid' };
 
     const done = rows('submissions').filter(s =>
-      s.userId === uid && Number(s.round) === round && s.questId === b.questId && s.status !== 'ไม่ผ่าน');
-    if (done.length) return { error: 'duplicate', message: 'ภารกิจนี้ส่งไปแล้ว' };
+      s.userId === uid && Number(s.round) === round && s.questId === b.questId && s.status !== FAIL);
+    if (done.length) return { error: 'duplicate', message: 'You already submitted this quest.' };
 
     PropertiesService.getScriptProperties()
       .setProperty('pending_' + uid, JSON.stringify({ round: round, questId: b.questId }));
@@ -223,12 +230,12 @@ const ACTIONS = {
     const level = Number(b.level);
     if (!HINT_COST.hasOwnProperty(level)) return { error: 'invalid' };
     if (level === 4 ? !phaseAtLeast('REVEAL') : !phaseAtLeast('HUNT')) {
-      return { error: 'phase', message: 'ยังไม่ถึงเวลาเปิดใบ้ข้อนี้' };
+      return { error: 'phase', message: 'This hint is not available yet.' };
     }
 
     const me = findUser(uid);
     if (!me || me.role !== 'junior') return { error: 'not_junior' };
-    if (!me.seniorId) return { error: 'no_pair', message: 'ยังไม่ได้จับคู่ ติดต่อสตาฟ' };
+    if (!me.seniorId) return { error: 'no_pair', message: 'You have no senior assigned yet — talk to a staff member.' };
 
     const already = rows('hint_unlocks').find(h => h.userId === uid && Number(h.level) === level);
     const text = String(findUser(me.seniorId)['hint' + level] || '').trim();
@@ -236,24 +243,24 @@ const ACTIONS = {
     if (already) return { ok: true, level: level, text: text };   // idempotent, no charge
 
     // Never charge for an empty hint.
-    if (!text) return { error: 'blank', message: 'พี่ยังไม่ได้เขียนใบ้ข้อนี้ ยังไม่ถูกหักเหรียญ' };
+    if (!text) return { error: 'blank', message: 'Your senior has not written this hint yet. No coins were taken.' };
 
     const cost = HINT_COST[level];
-    if (balance(uid) < cost) return { error: 'coins', message: 'เหรียญโดรายากิไม่พอ' };
+    if (balance(uid) < cost) return { error: 'coins', message: 'Not enough dorayaki coins.' };
 
     appendRow('hint_unlocks', { userId: uid, level: level, ts: new Date() });
     return { ok: true, level: level, text: text };
   },
 
   checkin: function (uid, b) {
-    if (!phaseAtLeast('CHECKIN')) return { error: 'phase', message: 'ยังไม่เปิดเช็คอิน' };
+    if (!phaseAtLeast('CHECKIN')) return { error: 'phase', message: 'Check-in is not open yet.' };
     const p = findUser(uid);
     if (!p) return { error: 'not_registered' };
     if (p.checkedInAt) return { ok: true, already: true };
     // ponytail: no brute-force lock on the 4-digit code. Worst case is marking
     // yourself present, not a security boundary. Add attempt counting if it matters.
     if (String(b.code || '').trim() !== String(cfg('CHECKIN_CODE')).trim()) {
-      return { error: 'code', message: 'รหัสไม่ถูกต้อง' };
+      return { error: 'code', message: 'Wrong code.' };
     }
     updateRow('participants', p._row, { checkedInAt: new Date() });
     return { ok: true };
@@ -264,7 +271,7 @@ const ACTIONS = {
   pending: function (uid) {
     if (!isStaff(uid)) return { error: 'forbidden' };
     const names = {};
-    rows('participants').forEach(p => names[p.lineUserId] = p.nickname + ' (บ้าน ' + p.house + ')');
+    rows('participants').forEach(p => names[p.lineUserId] = p.nickname + ' (Baan ' + p.house + ')');
     return {
       items: rows('submissions').filter(s => !s.status).slice(0, 40).map(s => ({
         row: s._row,
@@ -282,7 +289,7 @@ const ACTIONS = {
     if (!s) return { error: 'invalid' };
     if (s.status) return { ok: true, already: true };   // first tap wins
     updateRow('submissions', s._row, {
-      status: b.pass ? 'ผ่าน' : 'ไม่ผ่าน', reviewerId: uid, ts: new Date(),
+      status: b.pass ? PASS : FAIL, reviewerId: uid, ts: new Date(),
     });
     return { ok: true };
   },
@@ -303,7 +310,7 @@ const ACTIONS = {
       unpaired: juniors.filter(x => !x.seniorId).length,
       pendingReviews: rows('submissions').filter(x => !x.status).length,
       noHints: seniors.filter(x => !String(x.hint1 || '').trim())
-                      .map(x => x.nickname + ' (บ้าน ' + x.house + ')'),
+                      .map(x => x.nickname + ' (Baan ' + x.house + ')'),
     };
   },
 
@@ -323,7 +330,7 @@ const ACTIONS = {
 // ---------- domain helpers --------------------------------------------------
 
 function balance(uid) {
-  const earned = rows('submissions').filter(s => s.userId === uid && s.status === 'ผ่าน').length;
+  const earned = rows('submissions').filter(s => s.userId === uid && s.status === PASS).length;
   const spent = rows('hint_unlocks').filter(h => h.userId === uid)
     .reduce((sum, h) => sum + (HINT_COST[Number(h.level)] || 0), 0);
   return earned - spent;
@@ -367,13 +374,13 @@ function isLead(uid) {
 function onEvent(ev) {
   if (ev.type === 'follow') {
     linkRichMenu(ev.source.userId, cfg('RICHMENU_GUEST'));
-    return reply(ev.replyToken, 'ยินดีต้อนรับสู่ สายรหัส 2026 🔵\nกดเมนู "สมัคร" ด้านล่างเพื่อเริ่มเลย');
+    return reply(ev.replyToken, 'Welcome to Sairahus 2026 🔵\nTap "Register" in the menu below to get started.');
   }
 
   if (ev.type === 'message' && ev.message.type === 'image') return onQuestPhoto(ev);
 
   if (ev.type === 'message' && ev.message.type === 'text') {
-    return reply(ev.replyToken, 'ใช้เมนูด้านล่างได้เลย ถ้าติดปัญหาทักสตาฟได้');
+    return reply(ev.replyToken, 'Use the menu below. If something is wrong, message a staff member.');
   }
 }
 
@@ -382,7 +389,7 @@ function onQuestPhoto(ev) {
   const props = PropertiesService.getScriptProperties();
   const raw = props.getProperty('pending_' + uid);
   if (!raw) {
-    return reply(ev.replyToken, 'กดเมนู "ส่งภารกิจ" เลือกภารกิจก่อน แล้วค่อยส่งรูปนะ');
+    return reply(ev.replyToken, 'Tap "Submit quest" in the menu and pick a quest first, then send the photo.');
   }
 
   const pick = JSON.parse(raw);
@@ -394,8 +401,8 @@ function onQuestPhoto(ev) {
 
   // No push when staff approve later — juniors pull their balance from the wallet
   // screen. 200 juniors x 3 rounds of pushes would blow the free message quota.
-  reply(ev.replyToken, 'รับภารกิจ "' + pick.questId + '" แล้ว รอสตาฟตรวจ\n' +
-    'ดูเหรียญได้ที่เมนู "กระเป๋าวิเศษ"');
+  reply(ev.replyToken, 'Got your photo for "' + pick.questId + '". Waiting for staff review.\n' +
+    'Check your coins in the "Magic Pocket" menu.');
 }
 
 function saveImage(messageId) {
@@ -436,28 +443,28 @@ function lineApi(url, payload, method) {
 // ---------- validation ------------------------------------------------------
 
 function validateRegistration(b) {
-  if (!phaseAtLeast('REGISTER') || phaseAtLeast('CHECKIN')) return 'ปิดรับสมัครแล้ว';
-  if (['junior', 'senior'].indexOf(b.role) < 0) return 'เลือกสถานะไม่ถูกต้อง';
-  if (!b.nickname || !b.nickname.trim()) return 'กรอกชื่อเล่น';
-  if (!b.realName || !b.realName.trim()) return 'กรอกชื่อ-นามสกุล';
-  if (!/^\d{7,12}$/.test(String(b.studentId || '').trim())) return 'รหัสนักศึกษาไม่ถูกต้อง';
+  if (!phaseAtLeast('REGISTER') || phaseAtLeast('CHECKIN')) return 'Registration is closed.';
+  if (['junior', 'senior'].indexOf(b.role) < 0) return 'Pick junior or senior.';
+  if (!b.nickname || !b.nickname.trim()) return 'Nickname is required.';
+  if (!b.realName || !b.realName.trim()) return 'Full name is required.';
+  if (!/^\d{7,12}$/.test(String(b.studentId || '').trim())) return 'Student ID must be 7-12 digits.';
 
   const domain = String(cfg('EMAIL_DOMAIN') || '').trim();
   const email = String(b.email || '').trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return 'อีเมลไม่ถูกต้อง';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return 'That email address is not valid.';
   if (domain && email.slice(-domain.length - 1) !== '@' + domain) {
-    return 'ใช้อีเมลมหาวิทยาลัย (@' + domain + ') เท่านั้น';
+    return 'Use your university email (@' + domain + ') only.';
   }
 
   const house = Number(b.house);
-  if (!(house >= 1 && house <= 20)) return 'เลือกบ้านย่อย 1-20';
-  if (!(Number(b.year) >= 1 && Number(b.year) <= 8)) return 'เลือกชั้นปี';
+  if (!(house >= 1 && house <= BAANS)) return 'Pick a Baan from 1-' + BAANS + '.';
+  if (!(Number(b.year) >= 1 && Number(b.year) <= YEARS)) return 'Pick a year from 1-' + YEARS + '.';
 
   if (b.role === 'senior') {
     const cap = Number(b.capacity);
-    if (!(cap >= 1 && cap <= 5)) return 'รับน้องได้ 1-5 คน';
+    if (!(cap >= 1 && cap <= 5)) return 'Capacity must be 1-5 juniors.';
     if (!b.hint1 || b.hint1.trim().length < HINT_MIN) {
-      return 'ใบ้ข้อ 1 ต้องยาวอย่างน้อย ' + HINT_MIN + ' ตัวอักษร';
+      return 'Hint 1 must be at least ' + HINT_MIN + ' characters.';
     }
   }
   return null;
@@ -475,8 +482,8 @@ function setupSheets() {
   [['PHASE', 'REGISTER'], ['CHECKIN_CODE', '4126'], ['EMAIL_DOMAIN', 'student.mahidol.ac.th'],
    ['LEAD_IDS', ''], ['DRIVE_FOLDER_ID', ''], ['RICHMENU_GUEST', ''], ['RICHMENU_JUNIOR', ''],
    ['RICHMENU_SENIOR', ''], ['RICHMENU_STAFF', ''],
-   ['QUEST_R1', 'ถ่ายรูปคู่เพื่อนใหม่|ถ่ายรูปกับป้ายคณะ|ถ่ายรูปของโปรด'],
-   ['QUEST_R2', 'ถ่ายรูปหมู่บ้านย่อย|ถ่ายรูปกับสตาฟ|ถ่ายรูปท่าโดราเอมอน'],
-   ['QUEST_R3', 'ถ่ายรูปกับของที่ระลึก|ถ่ายรูปทีม|ถ่ายรูปมุมโปรดในคณะ'],
+   ['QUEST_R1', 'Photo with a new friend|Photo at the faculty sign|Photo of your favourite thing'],
+   ['QUEST_R2', 'Group photo with your Baan|Photo with a staff member|Photo doing a Doraemon pose'],
+   ['QUEST_R3', 'Photo with the souvenir|Team photo|Photo of your favourite spot on campus'],
   ].forEach(([k, v]) => { if (cfg(k) === undefined) setCfg(k, v); });
 }

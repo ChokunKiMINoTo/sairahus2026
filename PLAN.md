@@ -1,6 +1,6 @@
-# สายรหัส 2026 — implementation plan
+# Sairahus 2026 — implementation plan
 
-Doraemon-themed สายรหัส event. Junior finds their พี่รหัส by spending
+Doraemon-themed sairahus event. A junior finds their senior by spending
 dorayaki coins on gadget hints. Everything lives inside LINE.
 
 ## Stack (and what we're not using)
@@ -35,7 +35,7 @@ Three files. That's the whole system.
 
 ## Data model — 4 tabs
 
-- **participants** — `lineUserId, nickname, realName, studentId, email, year, house(1-20), village(1-5), capacity, seniorId, pairStatus, checkedInAt, role, hint1, hint2, hint3, hint4`
+- **participants** — `lineUserId, nickname, realName, studentId, email, year(1-4), house(1-10), village(1-5), capacity, seniorId, pairStatus, checkedInAt, role, hint1, hint2, hint3, hint4`
 - **submissions** — `userId, round, questId, imageId, status, reviewerId, ts`
 - **hint_unlocks** — `userId, level, ts`
 - **config** — `phase, checkinCode, quest titles, hint templates, theme strings`
@@ -44,13 +44,16 @@ Three files. That's the whole system.
 only on hints, both already recorded:
 
 ```js
-balance = countRows(submissions, {userId, status:'ผ่าน'})
+balance = countRows(submissions, {userId, status:'pass'})
         - sum(hint_unlocks[userId].map(h => HINT_COST[h.level]))
 ```
 
 A ledger is a second source of truth that can disagree with the first one.
 
 **No pairs sheet.** `seniorId` + `pairStatus` are columns on the junior's row.
+
+All UI and sheet values are English (`pass` / `fail` / `overflow`, `Baan`,
+`Village`) so staff reading the raw sheet see the same words as the screens.
 
 ## Auth — the only place not to be lazy
 
@@ -75,7 +78,7 @@ one you actually want as a backup contact.
 
 ```html
 <input type="email" name="email" required
-       pattern=".+@student.mahidol" title="ใช้อีเมลมหาวิทยาลัยเท่านั้น">
+       pattern=".+@STUDENT_DOMAIN" title="University email only">
 ```
 
 Native validation, no regex library, no JS. Domain lives in `config` so it's
@@ -117,54 +120,54 @@ their wallet. Idempotent: under lock, if `status !== ''` the tap is ignored, so
 two staff tapping at once can't double-credit.
 
 **3. Matching** — run once from the Apps Script editor when registration
-closes. Not a global assignment problem: สายรหัส lineage is inherited within a
-บ้านย่อย, so a junior's senior must be in the same house — 20 independent
-round-robins by remaining capacity. Shortfall → `พี่รหัสสมทบ` pool + flag for a human,
-detected now, not on event day. Villages = greedy largest-first bin-pack of
-houses into 5 balanced groups. ~30 lines with a self-check.
+closes. Not a global assignment problem: sairahus lineage is inherited within a
+Baan, so a junior's senior must be in the same Baan — 10 independent
+round-robins by remaining capacity. Shortfall → `overflow` pool + flag for a
+human, detected now, not on event day. Villages = greedy largest-first bin-pack
+of Baans into 5 balanced groups. ~30 lines with a self-check.
 
 **4. Check-in** — no scanner, no queue. 4-digit code on a sign at the door
-("รหัสประตูไปที่ไหนก็ได้"); junior taps เช็คอิน, types it, done. The code stops
+(the "Anywhere Door code"); junior taps Check in, types it, done. The code stops
 dorm check-ins. At 13:30 the lead hits **cut-off**: every junior whose senior
 never showed gets reassigned within their house to a checked-in senior with
 spare capacity; only affected seniors are notified. One button instead of
 thirty minutes of paper.
 
 **5. Hints — senior-authored, four free-text boxes.** Juniors already know
-their บ้านย่อย and pairing is within-house, so the search space is ~10 people
+their Baan and pairing is within-Baan, so the search space is ~10 people
 from the start. A generated village→house ladder would reveal nothing they
 don't already know. The fun is the senior writing their own clues, so the
 system stores strings and does not generate anything:
 
 | Lv | Gadget | Prompt shown to the senior | Cost |
 |---|---|---|---|
-| 1 | คอปเตอร์ไม้ไผ่ | "มองจากมุมสูง — บอกนิสัย/งานอดิเรกกว้าง ๆ" | 1 |
-| 2 | ประตูไปที่ไหนก็ได้ | "เรื่องที่คนมักเข้าใจผิดเกี่ยวกับพี่" | 1 |
-| 3 | ไฟฉายส่องหา | "จุดสังเกตวันงาน — วันนี้พี่ใส่อะไร/อยู่แถวไหน" | 2 |
-| 4 | โผล่จากลิ้นชัก | "ชื่อย่อ + ประโยคที่จะพูดตอนเจอกัน" | free at REVEAL |
+| 1 | Bamboo Copter | "A view from above — a broad trait or hobby" | 1 |
+| 2 | Anywhere Door | "Something people usually get wrong about you" | 1 |
+| 3 | Search Light | "Event-day marker — what you are wearing, where you'll be" | 2 |
+| 4 | Out of the Drawer | "Your initials + the first thing you'll say" | free at REVEAL |
 
 Level 4 is free so nobody goes home without finding their senior.
 
 Three things this costs us, all cheap:
 
 - **Level 3 is stale.** Seniors register weeks early and can't know what
-  they'll wear. Rich menu tile "แก้ใบ้วันงาน" opens `?p=hint` — the same form
+  they'll wear. Rich menu tile "My hints" opens `?p=hint` — the same form
   in edit mode, phase-gated to event day morning. No new code path.
 - **Blank hints.** *Never charge a coin for empty text.* Check the cell
-  before deducting; if blank, reply "พี่ยังไม่ได้เขียนใบ้ข้อนี้" and refund
+  before deducting; if blank, reply "your senior hasn't written this yet" and refund
   nothing because nothing was taken. This is the one guard that turns a
   lazy feature into an angry junior otherwise.
 - **Lazy hints.** `minlength=15` on the textarea plus a filled-in example
-  placeholder per box. Staff menu gets a "ใครยังไม่เขียนใบ้" count → nag list.
+  placeholder per box. Staff menu gets a "seniors with no hints" count → nag list.
 
-**6. Staff menu** — อนุมัติเควส, เปลี่ยนเฟส, ยอดเช็คอิน, ตัดยอด, ประกาศ.
+**6. Staff menu** — Review quests, Change phase, Check-in counts, Cut-off & rematch.
 Phase and cut-off gated to 2–3 hardcoded lead userIds in `config`.
 
 ## Theme
 
 5 villages = 5 characters (blue/yellow/pink/orange/green — distinct enough for
-name tags, zero explanation needed). 20 houses = 20 gadgets. Coins = เหรียญโดรายากิ,
-wallet screen = กระเป๋าวิเศษ.
+name tags, zero explanation needed). 10 Baans = 10 gadgets. Coins = dorayaki
+coins, wallet screen = the Magic Pocket.
 
 All theme strings live in the `config` tab. Nothing in the system logic depends
 on the theme — retheme in an hour if the faculty asks.

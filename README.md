@@ -1,6 +1,6 @@
-# สายรหัส 2026
+# Sairahus 2026
 
-Doraemon-themed สายรหัส event, running entirely inside LINE.
+Doraemon-themed sairahus (senior-junior pairing) event, running entirely inside LINE.
 Design and rationale: [PLAN.md](PLAN.md).
 
 ```
@@ -88,7 +88,7 @@ On the **LINE Login** channel → **LIFF** tab → **Add**:
 
 | Field | Value |
 |---|---|
-| LIFF app name | `สายรหัส 2026` |
+| LIFF app name | `Sairahus 2026` |
 | Size | **Full** |
 | Endpoint URL | your `PAGES_URL` from step 1 |
 | Scopes | ✅ `profile` ✅ `openid` — **nothing else** |
@@ -111,7 +111,7 @@ rich menu and no way back in.
 ## 4 · Create the Sheet and paste the code
 
 1. New Google Sheet at [sheets.new](https://sheets.new). Name it
-   `สายรหัส 2026 — data`.
+   `Sairahus 2026 — data`.
 2. **Extensions** → **Apps Script**. A new tab opens.
 3. Delete the sample `myFunction` in `Code.gs`, paste in all of
    **`apps-script/Code.gs`** from this repo.
@@ -211,7 +211,7 @@ const API = 'https://script.google.com/macros/s/AKfy.../exec';  // from step 6, 
 > webhook — putting it here would publish your secret in a public repo.
 
 2. Commit and push. Pages redeploys in ~1 minute.
-3. Open `PAGES_URL` in a normal browser. Expect **"เกิดข้อผิดพลาด"** — LIFF
+3. Open `PAGES_URL` in a normal browser. Expect **"Something went wrong"** — LIFF
    only fully initialises inside LINE. No blank page and no `PASTE_...` text
    means the constants took.
 
@@ -219,7 +219,7 @@ const API = 'https://script.google.com/macros/s/AKfy.../exec';  // from step 6, 
 
 ## 9 · Create the photo folder
 
-1. New folder in Google Drive, e.g. `สายรหัส 2026 — quest photos`.
+1. New folder in Google Drive, e.g. `Sairahus 2026 — quest photos`.
 2. Open it and copy the ID out of the URL:
    `https://drive.google.com/drive/folders/`**`1AbC…XyZ`**
 3. In the Sheet's **`config`** tab, set `DRIVE_FOLDER_ID` to that ID.
@@ -270,10 +270,10 @@ https://liff.line.me/<LIFF_ID>?p=<screen>
 
 | Menu | Tiles (`?p=`) |
 |---|---|
-| **Guest** (not yet registered) | `register` |
-| **Junior** | `wallet` · `quest` · `checkin` · `register` |
-| **Senior** | `hint` · `checkin` · `wallet` · `register` |
-| **Staff** | `staff` · `checkin` · `wallet` |
+| **Guest** (not yet registered) | Register → `register` |
+| **Junior** | Magic Pocket → `wallet` · Submit quest → `quest` · Check in → `checkin` · My details → `register` |
+| **Senior** | My hints → `hint` · Check in → `checkin` · My juniors → `wallet` · My details → `register` |
+| **Staff** | Staff → `staff` · Check in → `checkin` · Magic Pocket → `wallet` |
 
 Set the **Guest** menu as the **default** so new followers get it
 automatically. Set every menu's display period to cover the event.
@@ -308,14 +308,14 @@ In the **`config`** tab:
 **Now walk the whole flow yourself, in this order.** Every step should work
 before you tell 200 people to register.
 
-- [ ] **Register a second test account as a `junior`** in the same บ้านย่อย as
+- [ ] **Register a second test account as a `junior`** in the same Baan as
       your senior account. Check both rows appear in `participants`.
 - [ ] Rich menu changed by itself after registering.
 - [ ] Set `PHASE` to `QUEST_R1` on the staff screen. As the junior: menu →
       quest → pick one → return to chat → **send a photo**. Bot confirms.
 - [ ] New row in `submissions`, photo in the Drive folder.
-- [ ] Staff screen → **ตรวจภารกิจ** → the photo shows → tap **ผ่าน**.
-- [ ] Junior's wallet now reads **1 เหรียญ**.
+- [ ] Staff screen → **Review quests** → the photo shows → tap **Pass**.
+- [ ] Junior's wallet now reads **1 coin**.
 - [ ] `PHASE` → `CHECKIN`. Junior checks in with the code. A wrong code is
       rejected.
 - [ ] Apps Script editor → run **`test_match()`** → log says
@@ -334,14 +334,14 @@ Working through all of it? You're ready to open registration.
 
 | Symptom | Cause |
 |---|---|
-| Screen shows `เข้าสู่ระบบใหม่อีกครั้ง` | `LOGIN_CHANNEL_ID` wrong, or it belongs to a channel under a different provider |
+| Screen shows `Please sign in again` | `LOGIN_CHANNEL_ID` wrong, or it belongs to a channel under a different provider |
 | Bot silent on photos | Webhook URL missing `?k=`, `WEBHOOK_KEY` mismatched, or Use webhook off |
 | Bot replies "Thanks for your message" | Auto-response still on in OA Manager (step 2) |
 | Code edits have no effect | Didn't redeploy as a **new version** (step 6) |
-| Staff screen says "สำหรับสตาฟเท่านั้น" | userId not in `LEAD_IDS`, or `role` isn't `staff` |
+| Staff screen says "for staff only" | userId not in `LEAD_IDS`, or `role` isn't `staff` |
 | Quest photo won't display for review | `DRIVE_FOLDER_ID` empty or wrong |
 | Everyone paired to nobody | `runMatch()` never ran, or no seniors registered in that house |
-| `ระบบกำลังหนาแน่น` | Genuine concurrent load; it resolves on retry |
+| `System is busy` | Genuine concurrent load; it resolves on retry |
 
 Failed runs are logged: Apps Script editor → **Executions** in the left
 sidebar. That's the first place to look for anything unexplained.
@@ -353,12 +353,12 @@ sidebar. That's the first place to look for anything unexplained.
 | When | Do |
 |---|---|
 | Registration opens | `PHASE` = `REGISTER`. Share the OA QR code. |
-| During quest week | `PHASE` = `QUEST_R1` → `R2` → `R3`. Watch the staff screen's **พี่ที่ยังไม่เขียนใบ้** list and nag them. |
-| Registration closes | Run **`test_match()`**, then **`runMatch()`** from the editor. Read the log: `overflow` and `shortHouses` are houses with too few seniors. **Fix that now, not on the day** — recruit พี่รหัสสมทบ and re-run. |
+| During quest week | `PHASE` = `QUEST_R1` → `R2` → `R3`. Watch the staff screen's **Seniors with no hints written** list and nag them. |
+| Registration closes | Run **`test_match()`**, then **`runMatch()`** from the editor. Read the log: `overflow` and `shortHouses` are houses with too few seniors. **Fix that now, not on the day** — recruit extra seniors and re-run. |
 | Event day, doors open | `PHASE` = `CHECKIN`. Put `CHECKIN_CODE` on the sign. |
-| Morning of | Remind seniors to update hint 3 (what they're wearing) via the **แก้ใบ้วันงาน** menu tile. |
+| Morning of | Remind seniors to update hint 3 (what they're wearing) via the **My hints** menu tile. |
 | Hunt starts | `PHASE` = `HUNT`. Hints 1–3 unlock. |
-| 13:30 | **ตัดยอด & จับคู่ใหม่** on the staff screen. Reassigns juniors whose senior never showed. Read the `stranded` count — those need a human. |
+| 13:30 | **Cut-off & rematch** on the staff screen. Reassigns juniors whose senior never showed. Read the `stranded` count — those need a human. |
 | Reveal | `PHASE` = `REVEAL`. Hint 4 goes free so nobody leaves without finding their senior. |
 
 Change `PHASE` only from the staff screen. It's the single variable the whole
