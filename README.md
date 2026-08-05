@@ -337,7 +337,7 @@ In the `config` tab:
 | -------------------------------- | -------------------------------------------------------------- |
 | `PHASE`                          | `REGISTER`                                                     |
 | `CHECKIN_CODE`                   | any 4 digits — the number on the door sign                     |
-| `EMAIL_DOMAIN`                   | accepted student email domains, `\|`-separated: `student.mahidol.ac.th\|student.mahidol.edu`. Leave blank to accept any domain. |
+| `EMAIL_DOMAIN`                   | accepted student email domains: `student.mahidol.ac.th, student.mahidol.edu`. Comma, semicolon, pipe or space all separate. Leave blank to accept any domain. |
 | `QUEST_R1` `QUEST_R2` `QUEST_R3` | 3 quest titles each, separated by `|`                          |
 
 
@@ -387,6 +387,7 @@ Working through all of it? You're ready to open registration.
 | Bot silent on photos                  | Webhook URL missing `?k=`, `WEBHOOK_KEY` mismatched, or Use webhook off         |
 | Bot replies "Thanks for your message" | Auto-response still on in OA Manager (step 2)                                   |
 | Code edits have no effect             | Didn't redeploy as a **new version** (step 6)                                   |
+| Valid university email rejected       | Read the error text — it lists the domains the server actually parsed from `EMAIL_DOMAIN`. If that list looks wrong, fix the cell. `setupSheets()` never overwrites an existing key, so a seeded default must be edited by hand. |
 | Staff screen says "for staff only"    | userId not in `LEAD_IDS`, or `role` isn't `staff`                               |
 | Quest photo won't display for review  | `DRIVE_FOLDER_ID` empty or wrong                                                |
 | Everyone paired to nobody             | `runMatch()` never ran, or no seniors registered in that house                  |

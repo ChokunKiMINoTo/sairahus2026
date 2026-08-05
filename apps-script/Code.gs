@@ -380,6 +380,24 @@ function hintState(uid, junior) {
   }));
 }
 
+/**
+ * Accepted student email domains from the `EMAIL_DOMAIN` config cell.
+ * Empty list = accept any domain.
+ *
+ * Deliberately forgiving about how the cell is written, because the same config
+ * sheet uses commas for LEAD_IDS and pipes for QUEST_R*: any of `, ; |` or
+ * whitespace separates, and each entry may be written as `example.com`,
+ * `@example.com`, or even a whole address like `me@example.com`.
+ */
+function allowedDomains() {
+  // Both spellings accepted: a typo'd key would otherwise fail open and let
+  // every domain through, which is the wrong way for this check to break.
+  return String(cfg('EMAIL_DOMAIN') || cfg('EMAIL_DOMAINS') || '').toLowerCase()
+    .split(/[\s,;|]+/)
+    .map(d => d.trim().replace(/^.*@/, ''))
+    .filter(String);
+}
+
 /** First hint level (1-4) that is blank on a record, or 0 if all four are filled. */
 function missingHint(rec) {
   for (let i = 1; i <= 4; i++) if (!String(rec['hint' + i] || '').trim()) return i;
@@ -485,11 +503,7 @@ function validateRegistration(b) {
 
   const email = String(b.email || '').trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return 'That email address is not valid.';
-  // EMAIL_DOMAIN is `|`-separated, same convention as QUEST_R*. Exact match on
-  // the part after the last @ — a suffix test would let through
-  // notstudent.mahidol.ac.th.
-  const domains = String(cfg('EMAIL_DOMAIN') || '').toLowerCase().split('|')
-    .map(d => d.trim().replace(/^@/, '')).filter(String);
+  const domains = allowedDomains();
   if (domains.length && domains.indexOf(email.slice(email.lastIndexOf('@') + 1)) < 0) {
     return 'Use your university email (' + domains.map(d => '@' + d).join(' or ') + ') only.';
   }
