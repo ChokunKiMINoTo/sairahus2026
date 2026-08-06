@@ -35,7 +35,7 @@ Three files. That's the whole system.
 
 ## Data model — 4 tabs
 
-- **participants** — `lineUserId, nickname, realName, studentId, email, year(1-4), house(1-10), village(1-5), capacity, seniorId, pairStatus, checkedInAt, role, hint1, hint2, hint3, hint4`
+- **participants** — `lineUserId, nickname, realName, studentId, email, branch(ICT|DST), year(1-4), house(1-10), village(1-5), capacity, seniorId, pairStatus, checkedInAt, role, hint1, hint2, hint3, hint4`
 - **submissions** — `userId, round, questId, imageId, status, reviewerId, ts`
 - **hint_unlocks** — `userId, level, ts`
 - **config** — `phase, checkinCode, quest titles, hint templates, theme strings`
@@ -51,6 +51,12 @@ balance = countRows(submissions, {userId, status:'pass'})
 A ledger is a second source of truth that can disagree with the first one.
 
 **No pairs sheet.** `seniorId` + `pairStatus` are columns on the junior's row.
+
+**Column layout comes from the sheet's header row, not from the `TABS` constant.**
+`TABS` only says which columns *should* exist, so `setupSheets()` can add new
+ones on re-run; reads and writes locate columns by header name. That means a
+schema change or a staffer dragging a column cannot silently write into the
+wrong field.
 
 All UI and sheet values are English (`pass` / `fail` / `overflow`, `Baan`,
 `Village`) so staff reading the raw sheet see the same words as the screens.

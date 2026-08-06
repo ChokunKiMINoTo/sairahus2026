@@ -16,9 +16,17 @@ const PASS = 'pass';
 const FAIL = 'fail';
 const OVERFLOW = 'overflow';   // junior with no senior in their Baan
 
+const BRANCHES = ['ICT', 'DST'];
+
+/**
+ * Desired schema. Used by setupSheets() to create tabs and to add columns that
+ * are missing from an existing tab — never to locate a column at write time.
+ * The sheet's own header row is the authority for layout, so staff can reorder
+ * columns and old sheets keep working after a schema change.
+ */
 const TABS = {
-  participants: ['lineUserId', 'nickname', 'realName', 'studentId', 'email', 'year', 'house',
-                 'village', 'capacity', 'seniorId', 'pairStatus', 'checkedInAt', 'role',
+  participants: ['lineUserId', 'nickname', 'realName', 'studentId', 'email', 'branch', 'year',
+                 'house', 'village', 'capacity', 'seniorId', 'pairStatus', 'checkedInAt', 'role',
                  'hint1', 'hint2', 'hint3', 'hint4'],
   submissions:  ['userId', 'round', 'questId', 'fileId', 'status', 'reviewerId', 'ts'],
   hint_unlocks: ['userId', 'level', 'ts'],
@@ -48,16 +56,30 @@ function rows(name) {
   });
 }
 
+/**
+ * The tab's real header row — the authority for where a column lives.
+ * Reading layout from the sheet instead of TABS means adding a field, or a
+ * staffer dragging a column, can't silently write into the wrong one.
+ */
+let _head = {};
+function headers(name) {
+  if (_head[name]) return _head[name];
+  const sheet = tab(name);
+  return _head[name] = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(h => String(h).trim());
+}
+
 function appendRow(name, obj) {
-  tab(name).appendRow(TABS[name].map(k => obj[k] === undefined ? '' : obj[k]));
+  tab(name).appendRow(headers(name).map(k => obj[k] === undefined ? '' : obj[k]));
   delete _rows[name];
 }
 
-/** Patch named columns on one row. */
+/** Patch named columns on one row. Unknown column names are ignored. */
 function updateRow(name, rowNum, patch) {
   const sheet = tab(name);
+  const head = headers(name);
   Object.keys(patch).forEach(k => {
-    const col = TABS[name].indexOf(k) + 1;
+    const col = head.indexOf(k) + 1;
     if (col > 0) sheet.getRange(rowNum, col).setValue(patch[k]);
   });
   delete _rows[name];
@@ -206,6 +228,7 @@ const ACTIONS = {
       realName: b.realName.trim(),
       studentId: String(b.studentId).trim(),
       email: b.email.trim().toLowerCase(),
+      branch: String(b.branch).trim().toUpperCase(),
       year: Number(b.year),
       house: Number(b.house),
       role: b.role,
@@ -508,6 +531,10 @@ function validateRegistration(b) {
     return 'Use your university email (' + domains.map(d => '@' + d).join(' or ') + ') only.';
   }
 
+  if (BRANCHES.indexOf(String(b.branch || '').trim().toUpperCase()) < 0) {
+    return 'Pick your branch (' + BRANCHES.join(' or ') + ').';
+  }
+
   const house = Number(b.house);
   if (!(house >= 1 && house <= BAANS)) return 'Pick a Baan from 1-' + BAANS + '.';
   if (!(Number(b.year) >= 1 && Number(b.year) <= YEARS)) return 'Pick a year from 1-' + YEARS + '.';
@@ -523,15 +550,35 @@ function validateRegistration(b) {
 
 // ---------- one-time setup --------------------------------------------------
 
-/** Run once from the editor to create the tabs and seed `config`. */
+/**
+ * Run from the editor to create the tabs and seed `config`.
+ * Safe to re-run: it adds columns the schema has gained without touching
+ * existing data, and never overwrites a config key that already has a value.
+ */
 function setupSheets() {
   const ss = SpreadsheetApp.getActive();
+  const added = {};
+
   Object.keys(TABS).forEach(name => {
     const sheet = ss.getSheetByName(name) || ss.insertSheet(name);
-    if (sheet.getLastRow() === 0) sheet.appendRow(TABS[name]);
+    if (sheet.getLastRow() === 0) { sheet.appendRow(TABS[name]); return; }
+
+    // Existing tab: append any missing columns to the right so every current
+    // column index stays valid.
+    const head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+      .map(h => String(h).trim());
+    const missing = TABS[name].filter(c => head.indexOf(c) < 0);
+    if (missing.length) {
+      sheet.getRange(1, head.length + 1, 1, missing.length).setValues([missing]);
+      added[name] = missing;
+    }
   });
+
+  _head = {}; _rows = {};   // layout changed under us
+  if (Object.keys(added).length) console.log('Added columns: ' + JSON.stringify(added));
+
   [['PHASE', 'REGISTER'], ['CHECKIN_CODE', '4126'],
-   ['EMAIL_DOMAIN', 'student.mahidol.ac.th|student.mahidol.edu'],
+   ['EMAIL_DOMAIN', 'student.mahidol.ac.th, student.mahidol.edu'],
    ['LEAD_IDS', ''], ['DRIVE_FOLDER_ID', ''], ['RICHMENU_GUEST', ''], ['RICHMENU_JUNIOR', ''],
    ['RICHMENU_SENIOR', ''], ['RICHMENU_STAFF', ''],
    ['QUEST_R1', 'Photo with a new friend|Photo at the faculty sign|Photo of your favourite thing'],

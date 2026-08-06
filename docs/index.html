@@ -67,6 +67,7 @@ const API = 'https://script.google.com/macros/s/AKfycbyUbWfX5heEeSobJV49ENFCEQ28
 
 const YEARS = 4;    // years 1-4
 const BAANS = 10;   // Baan 1-10
+const BRANCHES = ['ICT', 'DST'];   // keep in sync with BRANCHES in Code.gs
 
 // Hints are free-style and unlabelled — just Hint 1-4, seniors write anything.
 const HINT_PLACEHOLDER = 'Write anything about yourself…';
@@ -126,6 +127,10 @@ function screenRegister() {
         '<input type="email" name="email" required' +
           ' pattern="[^@\\s]+@student\\.mahidol\\.(ac\\.th|edu)"' +
           ' title="Use @student.mahidol.ac.th or @student.mahidol.edu"></label>' +
+      '<label>Branch<select name="branch" required>' +
+        '<option value="">— select —</option>' +
+        BRANCHES.map(x => '<option value="' + x + '">' + x + '</option>').join('') +
+      '</select></label>' +
       '<label>Year<select name="year" required>' + opts(YEARS, 1) + '</select></label>' +
       '<label>Baan<select name="house" required>' + opts(BAANS, 1) + '</select></label>' +
       '<div id="seniorOnly" hidden>' +

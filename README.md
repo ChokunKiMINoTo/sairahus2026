@@ -143,6 +143,12 @@ rich menu and no way back in.
 If the tabs didn't appear, check **Executions** in the left sidebar for the
 error.
 
+**`setupSheets()` is safe to re-run**, and you should whenever you pull a schema
+change: it appends any new columns to the right of the existing header row and
+leaves your data alone. The **Executions** log prints which columns it added.
+Reads and writes locate columns by header name, so a differing column order
+never corrupts anything.
+
 ---
 
 
