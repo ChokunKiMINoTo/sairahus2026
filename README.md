@@ -5,9 +5,16 @@ Design and rationale: [PLAN.md](PLAN.md).
 
 ```
 docs/index.html      LIFF screens  (?p=register|hint|quest|wallet|checkin|staff)
+docs/schedule.html   public activity schedule — no login, no backend
 apps-script/Code.gs  API + LINE webhook
 apps-script/Match.gs matching, villages, 13:30 cut-off, self-check
 ```
+
+**Schedule page:** `https://<your-user>.github.io/sairahus2026/schedule.html`
+
+A plain link for a rich menu tile — *not* a `liff.line.me` URL. It needs no login
+and never touches Apps Script, so it opens instantly for anyone, including people
+who haven't registered. Replace `docs/schedule.jpg` to update it.
 
 ---
 
