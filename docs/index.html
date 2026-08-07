@@ -27,6 +27,7 @@
          border:1px solid var(--line); border-radius:10px; background:#fff; }
   input:focus,select,textarea:focus{ outline:2px solid var(--blue); outline-offset:-1px }
   textarea{ min-height:76px; resize:vertical }
+  fieldset{ border:0; padding:0; margin:0; min-width:0 }
   button{ width:100%; padding:14px; font:inherit; font-weight:700; color:#fff;
           background:var(--blue); border:0; border-radius:999px; margin-top:18px; cursor:pointer }
   button:disabled{ background:var(--mute); cursor:default }
@@ -133,20 +134,39 @@ function screenRegister() {
       '</select></label>' +
       '<label>Year<select name="year" required>' + opts(YEARS, 1) + '</select></label>' +
       '<label>Baan<select name="house" required>' + opts(BAANS, 1) + '</select></label>' +
-      '<div id="seniorOnly" hidden>' +
+      // fieldset, not div: `disabled` on it exempts the required hint boxes from
+      // validation for juniors. `hidden` alone does NOT — the browser would keep
+      // blocking submit on an invisible field and show no error, making the
+      // Register button look dead. Starts disabled until a role is picked.
+      '<fieldset id="seniorOnly" hidden disabled>' +
         '<label>How many juniors can you take?<select name="capacity">' + opts(5, 1) + '</select></label>' +
         // Prefill on edit — register() overwrites all four columns, so empty
         // boxes here would silently wipe hints the senior already wrote.
         hintFields(isEdit ? me.hints : null) +
-      '</div>' +
+      '</fieldset>' +
       '<button type="submit">' + (isEdit ? 'Save changes' : 'Register') + '</button>' +
     '</form>'
   );
 
-  const toggle = () => $('#seniorOnly').hidden = $('#role').value !== 'senior';
+  // Both attributes move together: `hidden` controls what is seen, `disabled`
+  // controls what is validated and submitted.
+  const toggle = () => {
+    const senior = $('#role').value === 'senior';
+    $('#seniorOnly').hidden = !senior;
+    $('#seniorOnly').disabled = !senior;
+  };
   $('#role').addEventListener('change', toggle);
   if (isEdit) { $('#role').value = me.role; toggle(); }
   $('#f').addEventListener('submit', submitRegister);
+
+  // If a field blocks submit while invisible, the browser reports nothing and the
+  // button looks broken. Say so instead of leaving the user stuck.
+  $('#f').addEventListener('invalid', ev => {
+    if (ev.target.offsetParent === null) {
+      flash('err', 'A hidden field ("' + (ev.target.name || '?') + '") is blocking ' +
+        'submit. Please tell staff — this is a bug, not your fault.');
+    }
+  }, true);
 }
 
 /** Four free-style boxes, all required. Ordering is guided, never the subject. */
